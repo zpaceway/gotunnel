@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"zpaceway.com/gotunnel/communication"
@@ -98,10 +97,8 @@ func GetIpAddressCountryCode(ipAddress string) string {
 func CreateTunnel(clientPort string, proxyPort string, connectionTimeout time.Duration) {
 	cache := make(map[string]string)
 	availableProxiesByCountry := make(map[string]*LinkedList[net.Conn])
-	countryLock := make(map[string]*sync.Mutex)
 
 	for _, country := range constants.SUPPORTED_COUNTRIES {
-		countryLock[country] = &sync.Mutex{}
 		availableProxiesByCountry[country] = &LinkedList[net.Conn]{}
 	}
 
@@ -153,9 +150,7 @@ func CreateTunnel(clientPort string, proxyPort string, connectionTimeout time.Du
 					if country != proxyCountryCode {
 						continue
 					}
-					countryLock[country].Lock()
 					availableProxiesByCountry[country].Add(&proxyConn)
-					countryLock[country].Unlock()
 					return
 				}
 
@@ -220,14 +215,11 @@ func CreateTunnel(clientPort string, proxyPort string, connectionTimeout time.Du
 
 				var elapsedTimeRetrying time.Duration = 0
 				for {
-					countryLock[countryCode].Lock()
 					proxyConnPointer := availableProxiesByCountry[countryCode].Pop()
 					if proxyConnPointer != nil {
 						proxyConn = *proxyConnPointer
-						countryLock[countryCode].Unlock()
 						break
 					}
-					countryLock[countryCode].Unlock()
 
 					time.Sleep(time.Second / 5)
 					elapsedTimeRetrying += time.Second / 5
