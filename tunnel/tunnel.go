@@ -70,6 +70,10 @@ func CreateTunnel(clientPort string, proxyPort string, connectionTimeout time.Du
 	availableProxiesByCountry := make(map[string][]net.Conn)
 	countryLock := make(map[string]*sync.Mutex)
 
+	for _, country := range constants.SUPPORTED_COUNTRIES {
+		countryLock[country] = &sync.Mutex{}
+	}
+
 	clientListener, err := net.Listen("tcp", "0.0.0.0:"+clientPort)
 	if err != nil {
 		fmt.Println("Error listening on port", clientPort)
@@ -96,21 +100,34 @@ func CreateTunnel(clientPort string, proxyPort string, connectionTimeout time.Du
 				n, err := proxyConn.Read(connectionMessage)
 
 				if err != nil {
+					proxyConn.Close()
 					return
 				}
 
-				if string(connectionMessage[0:n]) == constants.TUNNEL_PROXY_CONNECT_MESSAGE {
-					proxyAddress := proxyConn.RemoteAddr().String()
-					proxyIpAddress := proxyAddress[:strings.LastIndex(proxyAddress, ":")]
-					proxyCountryCode := cache[proxyIpAddress]
-					if proxyCountryCode == "" {
-						proxyCountryCode = GetIpAddressCountryCode(proxyIpAddress)
-						cache[proxyIpAddress] = proxyCountryCode
-					}
-					countryLock[proxyCountryCode].Lock()
-					availableProxiesByCountry[proxyCountryCode] = append(availableProxiesByCountry[proxyCountryCode], proxyConn)
-					countryLock[proxyCountryCode].Unlock()
+				if string(connectionMessage[0:n]) != constants.TUNNEL_PROXY_CONNECT_MESSAGE {
+					proxyConn.Close()
 				}
+
+				proxyAddress := proxyConn.RemoteAddr().String()
+				proxyIpAddress := proxyAddress[:strings.LastIndex(proxyAddress, ":")]
+				proxyCountryCode := cache[proxyIpAddress]
+
+				if proxyCountryCode == "" {
+					proxyCountryCode = GetIpAddressCountryCode(proxyIpAddress)
+					cache[proxyIpAddress] = proxyCountryCode
+				}
+
+				for _, country := range constants.SUPPORTED_COUNTRIES {
+					if country == proxyCountryCode {
+						continue
+					}
+					countryLock[country].Lock()
+					availableProxiesByCountry[country] = append(availableProxiesByCountry[country], proxyConn)
+					countryLock[country].Unlock()
+					return
+				}
+
+				proxyConn.Close()
 			})()
 
 		}
