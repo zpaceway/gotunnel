@@ -148,6 +148,8 @@ func CreateTunnel(clientPort string, proxyPort string, connectionTimeout time.Du
 							return
 						}
 
+						fmt.Println(formattedIdentifierAndPasswordDecoded)
+
 						formattedIdentifierAndPassword := strings.Split(string(formattedIdentifierAndPasswordDecoded), ":")
 
 						formattedIdentifier := formattedIdentifierAndPassword[0]
