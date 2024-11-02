@@ -68,7 +68,7 @@ func GetIpAddressCountryCode(ipAddress string) string {
 func CreateTunnel(clientPort string, proxyPort string, connectionTimeout time.Duration) {
 	cache := make(map[string]string)
 	availableProxiesByCountry := make(map[string][]net.Conn)
-	lock := sync.Mutex{}
+	countryLock := make(map[string]*sync.Mutex)
 
 	clientListener, err := net.Listen("tcp", "0.0.0.0:"+clientPort)
 	if err != nil {
@@ -107,9 +107,9 @@ func CreateTunnel(clientPort string, proxyPort string, connectionTimeout time.Du
 						proxyCountryCode = GetIpAddressCountryCode(proxyIpAddress)
 						cache[proxyIpAddress] = proxyCountryCode
 					}
-					lock.Lock()
+					countryLock[proxyCountryCode].Lock()
 					availableProxiesByCountry[proxyCountryCode] = append(availableProxiesByCountry[proxyCountryCode], proxyConn)
-					lock.Unlock()
+					countryLock[proxyCountryCode].Unlock()
 				}
 			})()
 
@@ -165,20 +165,20 @@ func CreateTunnel(clientPort string, proxyPort string, connectionTimeout time.Du
 
 				username := strings.TrimPrefix(formattedIdentifierParts[0], "U!")
 				countryCode := strings.TrimPrefix(formattedIdentifierParts[1], "C!")
-				password := strings.TrimPrefix(formattedIdentifierParts[2], "P!")
+				key := strings.TrimPrefix(formattedIdentifierParts[2], "K!")
 
-				fmt.Println(">>> Client Connected:", username+":"+password+"@"+countryCode)
+				fmt.Println(">>> Client Connected:", username+":"+key+"@"+countryCode)
 
 				var elapsedTimeRetrying time.Duration = 0
 				for {
-					lock.Lock()
+					countryLock[countryCode].Lock()
 					if len(availableProxiesByCountry[countryCode]) != 0 {
 						proxyConn = availableProxiesByCountry[countryCode][0]
 						availableProxiesByCountry[countryCode] = availableProxiesByCountry[countryCode][1:]
-						lock.Unlock()
+						countryLock[countryCode].Unlock()
 						break
 					}
-					lock.Unlock()
+					countryLock[countryCode].Unlock()
 
 					time.Sleep(time.Second / 5)
 					elapsedTimeRetrying += time.Second / 5
