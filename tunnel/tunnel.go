@@ -183,6 +183,11 @@ func CreateTunnel(clientPort string, proxyPort string, connectionTimeout time.Du
 
 				}
 
+				if proxyConn == nil {
+					clientConn.Close()
+					return
+				}
+
 				proxyConn.Write(head[0:n])
 				go communication.Copy(proxyConn, clientConn)
 				go communication.Copy(clientConn, proxyConn)
