@@ -142,7 +142,7 @@ func CreateTunnel(clientPort string, proxyPort string, connectionTimeout time.Du
 				for _, line := range strings.Split(data, "\r\n") {
 					if strings.HasPrefix(line, "Proxy-Authorization: Basic ") {
 						formattedIdentifierAndPasswordEncoded := strings.TrimPrefix(line, "Proxy-Authorization: Basic ")
-						formattedIdentifierAndPasswordDecoded, err := base64.RawStdEncoding.DecodeString(formattedIdentifierAndPasswordEncoded)
+						formattedIdentifierAndPasswordDecoded, err := base64.StdEncoding.DecodeString(formattedIdentifierAndPasswordEncoded)
 						if err != nil {
 							fmt.Println(err, "'"+formattedIdentifierAndPasswordEncoded+"'")
 							clientConn.Close()
