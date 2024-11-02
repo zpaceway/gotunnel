@@ -127,18 +127,18 @@ func CreateTunnel(clientPort string, proxyPort string, connectionTimeout time.Du
 			}
 
 			go (func() {
-				head := make([]byte, 1024)
-				n, err := clientConn.Read(head)
+				headBytes := make([]byte, 1024)
+				n, err := clientConn.Read(headBytes)
 
 				if err != nil {
 					clientConn.Close()
 					return
 				}
 
-				data := string(head[0:n])
+				head := string(headBytes[0:n])
 
 				proxyAuthorizationLine := ""
-				for index, line := range strings.Split(data, "\r\n") {
+				for index, line := range strings.Split(head, "\r\n") {
 					if index == 0 {
 						fmt.Println(">>> Request:", line)
 					}
@@ -149,26 +149,23 @@ func CreateTunnel(clientPort string, proxyPort string, connectionTimeout time.Du
 					proxyAuthorizationLine = line
 				}
 
-				formattedIdentifierAndPasswordEncoded := strings.TrimPrefix(proxyAuthorizationLine, "Proxy-Authorization: Basic ")
-				formattedIdentifierAndPasswordDecoded, err := base64.StdEncoding.DecodeString(formattedIdentifierAndPasswordEncoded)
+				formattedIdentifierEncoded := strings.TrimPrefix(proxyAuthorizationLine, "Proxy-Authorization: Basic ")
+				formattedIdentifierDecoded, err := base64.StdEncoding.DecodeString(formattedIdentifierEncoded)
 
 				if err != nil {
 					clientConn.Close()
 					return
 				}
 
-				formattedIdentifierAndPassword := strings.Split(string(formattedIdentifierAndPasswordDecoded), ":")
-				formattedIdentifier := formattedIdentifierAndPassword[0]
-				password := formattedIdentifierAndPassword[1]
-
-				formattedIdentifierParts := strings.Split(formattedIdentifier, "-")
-				if len(formattedIdentifierParts) != 2 {
+				formattedIdentifierParts := strings.Split(string(formattedIdentifierDecoded), "-")
+				if len(formattedIdentifierParts) != 3 {
 					clientConn.Close()
 					return
 				}
 
 				username := strings.TrimPrefix(formattedIdentifierParts[0], "U!")
 				countryCode := strings.TrimPrefix(formattedIdentifierParts[1], "C!")
+				password := strings.TrimPrefix(formattedIdentifierParts[2], "P!")
 
 				fmt.Println(">>> Client Connected:", username+":"+password+"@"+countryCode)
 
@@ -191,7 +188,7 @@ func CreateTunnel(clientPort string, proxyPort string, connectionTimeout time.Du
 					}
 				}
 
-				proxyConn.Write(head[0:n])
+				proxyConn.Write(headBytes[0:n])
 				go communication.Copy(proxyConn, clientConn)
 				go communication.Copy(clientConn, proxyConn)
 			})()
