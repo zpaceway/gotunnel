@@ -107,11 +107,9 @@ func CreateTunnel(clientPort string, proxyPort string, connectionTimeout time.Du
 						proxyCountryCode = GetIpAddressCountryCode(proxyIpAddress)
 						cache[proxyIpAddress] = proxyCountryCode
 					}
-					fmt.Println(">>> Proxy Connected:", proxyIpAddress+"@"+proxyCountryCode)
 					lock.Lock()
 					availableProxiesByCountry[proxyCountryCode] = append(availableProxiesByCountry[proxyCountryCode], proxyConn)
 					lock.Unlock()
-					fmt.Println(">>> Proxy Added:", proxyIpAddress+"@"+proxyCountryCode)
 				}
 			})()
 
@@ -129,7 +127,6 @@ func CreateTunnel(clientPort string, proxyPort string, connectionTimeout time.Du
 			}
 
 			go (func() {
-
 				head := make([]byte, 1024)
 				n, err := clientConn.Read(head)
 
@@ -140,60 +137,58 @@ func CreateTunnel(clientPort string, proxyPort string, connectionTimeout time.Du
 
 				data := string(head[0:n])
 
-				for _, line := range strings.Split(data, "\r\n") {
-					if strings.HasPrefix(line, "Proxy-Authorization: Basic ") {
-						formattedIdentifierAndPasswordEncoded := strings.TrimPrefix(line, "Proxy-Authorization: Basic ")
-						formattedIdentifierAndPasswordDecoded, err := base64.StdEncoding.DecodeString(formattedIdentifierAndPasswordEncoded)
-
-						if err != nil {
-							clientConn.Close()
-							return
-						}
-
-						formattedIdentifierAndPassword := strings.Split(string(formattedIdentifierAndPasswordDecoded), ":")
-
-						formattedIdentifier := formattedIdentifierAndPassword[0]
-						password := formattedIdentifierAndPassword[1]
-
-						parts := strings.Split(formattedIdentifier, "-")
-						if len(parts) != 2 {
-							clientConn.Close()
-							return
-						}
-
-						username := strings.TrimPrefix(parts[0], "U!")
-						countryCode := strings.TrimPrefix(parts[1], "C!")
-
-						fmt.Println(">>> Client Connected:", username+":"+password+"@"+countryCode)
-
-						var elapsedTimeRetrying time.Duration = 0
-						for {
-							lock.Lock()
-							if len(availableProxiesByCountry[countryCode]) != 0 {
-								proxyConn = availableProxiesByCountry[countryCode][0]
-								availableProxiesByCountry[countryCode] = availableProxiesByCountry[countryCode][1:]
-								fmt.Println(">>> Proxy Selected:", proxyConn.RemoteAddr().String())
-								lock.Unlock()
-								break
-							}
-							lock.Unlock()
-
-							time.Sleep(time.Second / 10)
-							elapsedTimeRetrying += time.Second / 10
-							if elapsedTimeRetrying >= connectionTimeout {
-								clientConn.Close()
-								return
-							}
-						}
-
-						break
+				proxyAuthorizationLine := ""
+				for index, line := range strings.Split(data, "\r\n") {
+					if index == 0 {
+						fmt.Println(">>> Request:", line)
 					}
 
+					if !strings.HasPrefix(line, "Proxy-Authorization: Basic ") {
+						continue
+					}
+					proxyAuthorizationLine = line
 				}
 
-				if proxyConn == nil {
+				formattedIdentifierAndPasswordEncoded := strings.TrimPrefix(proxyAuthorizationLine, "Proxy-Authorization: Basic ")
+				formattedIdentifierAndPasswordDecoded, err := base64.StdEncoding.DecodeString(formattedIdentifierAndPasswordEncoded)
+
+				if err != nil {
 					clientConn.Close()
 					return
+				}
+
+				formattedIdentifierAndPassword := strings.Split(string(formattedIdentifierAndPasswordDecoded), ":")
+				formattedIdentifier := formattedIdentifierAndPassword[0]
+				password := formattedIdentifierAndPassword[1]
+
+				formattedIdentifierParts := strings.Split(formattedIdentifier, "-")
+				if len(formattedIdentifierParts) != 2 {
+					clientConn.Close()
+					return
+				}
+
+				username := strings.TrimPrefix(formattedIdentifierParts[0], "U!")
+				countryCode := strings.TrimPrefix(formattedIdentifierParts[1], "C!")
+
+				fmt.Println(">>> Client Connected:", username+":"+password+"@"+countryCode)
+
+				var elapsedTimeRetrying time.Duration = 0
+				for {
+					lock.Lock()
+					if len(availableProxiesByCountry[countryCode]) != 0 {
+						proxyConn = availableProxiesByCountry[countryCode][0]
+						availableProxiesByCountry[countryCode] = availableProxiesByCountry[countryCode][1:]
+						lock.Unlock()
+						break
+					}
+					lock.Unlock()
+
+					time.Sleep(time.Second / 5)
+					elapsedTimeRetrying += time.Second / 5
+					if elapsedTimeRetrying >= connectionTimeout {
+						clientConn.Close()
+						return
+					}
 				}
 
 				proxyConn.Write(head[0:n])
