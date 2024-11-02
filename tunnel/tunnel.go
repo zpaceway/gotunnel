@@ -106,6 +106,7 @@ func CreateTunnel(clientPort string, proxyPort string, connectionTimeout time.Du
 
 				if string(connectionMessage[0:n]) != constants.TUNNEL_PROXY_CONNECT_MESSAGE {
 					proxyConn.Close()
+					return
 				}
 
 				proxyAddress := proxyConn.RemoteAddr().String()
@@ -136,7 +137,7 @@ func CreateTunnel(clientPort string, proxyPort string, connectionTimeout time.Du
 	go (func() {
 		for {
 			clientConn, err := clientListener.Accept()
-			fmt.Println("Incomming connection...", clientConn.RemoteAddr().String())
+			fmt.Println(">>> Incomming connection...", clientConn.RemoteAddr().String())
 			var proxyConn net.Conn
 
 			if err != nil || clientConn == nil {
