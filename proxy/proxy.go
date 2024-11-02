@@ -41,12 +41,20 @@ func NewProxyJumper(tunnel string) {
 	go (func() {
 		data := string(received[:n])
 
-		for _, line := range strings.Split(data, "\r\n") {
-			if strings.HasPrefix(line, "Host: ") {
-				host = strings.TrimPrefix(line, "Host: ")
+		for index, line := range strings.Split(data, "\r\n") {
+			if index == 0 {
+				if strings.HasPrefix(line, "CONNECT") {
+					ssl = true
+				}
+				parts := strings.Fields(line)
+				if len(parts) > 1 {
+					host = parts[1]
+					break
+				}
 			}
-			if strings.HasPrefix(line, "CONNECT") {
-				ssl = true
+			if host == "" && strings.HasPrefix(line, "Host: ") {
+				host = strings.TrimPrefix(line, "Host: ")
+				break
 			}
 		}
 
@@ -55,6 +63,9 @@ func NewProxyJumper(tunnel string) {
 			return
 		}
 
+		host = strings.TrimPrefix(host, "http://")
+		host = strings.TrimPrefix(host, "https://")
+		host = strings.Split(host, "/")[0]
 		if !strings.Contains(host, ":") {
 			host += ":443"
 		}

@@ -14,14 +14,23 @@ func CreateTunnel(clientPort string, proxyPort string, connectionTimeout time.Du
 	availableProxies := make([]net.Conn, 0)
 	lock := sync.Mutex{}
 
-	clientListener, _ := net.Listen("tcp", "0.0.0.0:"+clientPort)
+	clientListener, err := net.Listen("tcp", "0.0.0.0:"+clientPort)
+	if err != nil {
+		fmt.Println("Error listening on port", clientPort)
+		panic(err)
+	}
 	fmt.Println("Client Tunnel listening on port "+clientPort+" with timeout of", connectionTimeout)
-	proxylistener, _ := net.Listen("tcp", "0.0.0.0:"+proxyPort)
+	proxylistener, err := net.Listen("tcp", "0.0.0.0:"+proxyPort)
+	if err != nil {
+		fmt.Println("Error listening on port", clientPort)
+		panic(err)
+	}
 	fmt.Println("Proxy Tunnel listening on port " + proxyPort)
 
 	go (func() {
 		for {
 			proxyConn, err := proxylistener.Accept()
+
 			if err != nil {
 				continue
 			}
