@@ -25,12 +25,12 @@ func init() {
 func main() {
 	switch *mode {
 	case "all":
-		tunnel.CreateTunnel(*tcport, *tpport, *timeout)
-		proxy.CreateProxy(*thost, *availability)
+		go tunnel.CreateTunnel(*tcport, *tpport, *timeout)
+		go proxy.CreateProxy(*thost, *availability)
 	case "tunnel":
-		tunnel.CreateTunnel(*tcport, *tpport, *timeout)
+		go tunnel.CreateTunnel(*tcport, *tpport, *timeout)
 	case "proxy":
-		proxy.CreateProxy(*thost, *availability)
+		go proxy.CreateProxy(*thost, *availability)
 	default:
 		fmt.Println("Invalid mode. Use one of: all, tunnel, proxy")
 		return

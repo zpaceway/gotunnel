@@ -98,4 +98,6 @@ func CreateProxy(tunnel string, availability uint) {
 			}
 		})()
 	}
+
+	select {}
 }

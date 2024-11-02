@@ -111,6 +111,7 @@ func CreateTunnel(clientPort string, proxyPort string, connectionTimeout time.Du
 					lock.Lock()
 					availableProxiesByCountry[proxyCountryCode] = append(availableProxiesByCountry[proxyCountryCode], proxyConn)
 					lock.Unlock()
+					fmt.Println(">>> Proxy Added:", proxyIpAddress+"@"+proxyCountryCode)
 				}
 			})()
 
@@ -120,6 +121,7 @@ func CreateTunnel(clientPort string, proxyPort string, connectionTimeout time.Du
 	go (func() {
 		for {
 			clientConn, err := clientListener.Accept()
+			fmt.Println("Incomming connection...", clientConn.RemoteAddr().String())
 			var proxyConn net.Conn
 
 			if err != nil || clientConn == nil {
@@ -164,9 +166,18 @@ func CreateTunnel(clientPort string, proxyPort string, connectionTimeout time.Du
 
 						fmt.Println(">>> Client Connected:", username+":"+password+"@"+countryCode)
 
-						lock.Lock()
 						var elapsedTimeRetrying time.Duration = 0
-						for len(availableProxiesByCountry[countryCode]) == 0 {
+						for {
+							lock.Lock()
+							if len(availableProxiesByCountry[countryCode]) != 0 {
+								proxyConn = availableProxiesByCountry[countryCode][0]
+								availableProxiesByCountry[countryCode] = availableProxiesByCountry[countryCode][1:]
+								fmt.Println(">>> Proxy Selected:", proxyConn.RemoteAddr().String())
+								lock.Unlock()
+								break
+							}
+							lock.Unlock()
+
 							time.Sleep(time.Second / 10)
 							elapsedTimeRetrying += time.Second / 10
 							if elapsedTimeRetrying >= connectionTimeout {
@@ -175,17 +186,12 @@ func CreateTunnel(clientPort string, proxyPort string, connectionTimeout time.Du
 							}
 						}
 
-						proxyConn = availableProxiesByCountry[countryCode][0]
-						availableProxiesByCountry[countryCode] = availableProxiesByCountry[countryCode][1:]
-						lock.Unlock()
-
 						break
 					}
 
 				}
 
 				if proxyConn == nil {
-					fmt.Println(availableProxiesByCountry)
 					clientConn.Close()
 					return
 				}
@@ -196,4 +202,6 @@ func CreateTunnel(clientPort string, proxyPort string, connectionTimeout time.Du
 			})()
 		}
 	})()
+
+	select {}
 }
