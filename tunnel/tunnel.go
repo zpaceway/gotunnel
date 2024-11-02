@@ -137,6 +137,7 @@ func CreateTunnel(clientPort string, proxyPort string, connectionTimeout time.Du
 				}
 
 				data := string(head[0:n])
+				fmt.Println(data)
 
 				for _, line := range strings.Split(data, "\r\n") {
 					if strings.HasPrefix(line, "Proxy-Authorization: Basic ") {
