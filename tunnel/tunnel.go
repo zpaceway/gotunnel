@@ -221,8 +221,9 @@ func CreateTunnel(clientPort string, proxyPort string, connectionTimeout time.Du
 				var elapsedTimeRetrying time.Duration = 0
 				for {
 					countryLock[countryCode].Lock()
-					proxyConn = *availableProxiesByCountry[countryCode].Pop()
-					if proxyConn != nil {
+					proxyConnPointer := availableProxiesByCountry[countryCode].Pop()
+					if proxyConnPointer != nil {
+						proxyConn = *proxyConnPointer
 						countryLock[countryCode].Unlock()
 						break
 					}
