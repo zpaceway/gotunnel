@@ -118,7 +118,7 @@ func CreateTunnel(clientPort string, proxyPort string, connectionTimeout time.Du
 				}
 
 				for _, country := range constants.SUPPORTED_COUNTRIES {
-					if country == proxyCountryCode {
+					if country != proxyCountryCode {
 						continue
 					}
 					countryLock[country].Lock()
