@@ -15,6 +15,36 @@ import (
 	"zpaceway.com/gotunnel/constants"
 )
 
+type LinkedList[T comparable] struct {
+	Head *Node[T]
+	Tail *Node[T]
+}
+
+type Node[T any] struct {
+	Value *T
+	Next  *Node[T]
+}
+
+func (list *LinkedList[T]) Add(value *T) {
+	node := &Node[T]{Value: value}
+	if list.Head == nil {
+		list.Head = node
+		list.Tail = node
+		return
+	}
+	list.Tail.Next = node
+	list.Tail = node
+}
+
+func (list *LinkedList[T]) Pop() *T {
+	if list.Head == nil {
+		return nil
+	}
+	value := list.Head.Value
+	list.Head = list.Head.Next
+	return value
+}
+
 func GetPublicIpAddress() string {
 	resp, err := http.Get("https://checkip.amazonaws.com/")
 	if err != nil {
@@ -67,11 +97,12 @@ func GetIpAddressCountryCode(ipAddress string) string {
 
 func CreateTunnel(clientPort string, proxyPort string, connectionTimeout time.Duration) {
 	cache := make(map[string]string)
-	availableProxiesByCountry := make(map[string][]net.Conn)
+	availableProxiesByCountry := make(map[string]*LinkedList[net.Conn])
 	countryLock := make(map[string]*sync.Mutex)
 
 	for _, country := range constants.SUPPORTED_COUNTRIES {
 		countryLock[country] = &sync.Mutex{}
+		availableProxiesByCountry[country] = &LinkedList[net.Conn]{}
 	}
 
 	clientListener, err := net.Listen("tcp", "0.0.0.0:"+clientPort)
@@ -123,7 +154,7 @@ func CreateTunnel(clientPort string, proxyPort string, connectionTimeout time.Du
 						continue
 					}
 					countryLock[country].Lock()
-					availableProxiesByCountry[country] = append(availableProxiesByCountry[country], proxyConn)
+					availableProxiesByCountry[country].Add(&proxyConn)
 					countryLock[country].Unlock()
 					return
 				}
@@ -190,9 +221,8 @@ func CreateTunnel(clientPort string, proxyPort string, connectionTimeout time.Du
 				var elapsedTimeRetrying time.Duration = 0
 				for {
 					countryLock[countryCode].Lock()
-					if len(availableProxiesByCountry[countryCode]) != 0 {
-						proxyConn = availableProxiesByCountry[countryCode][0]
-						availableProxiesByCountry[countryCode] = availableProxiesByCountry[countryCode][1:]
+					proxyConn = *availableProxiesByCountry[countryCode].Pop()
+					if proxyConn != nil {
 						countryLock[countryCode].Unlock()
 						break
 					}
